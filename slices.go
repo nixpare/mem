@@ -1,10 +1,15 @@
 package mem
 
 import (
+	"fmt"
 	"unsafe"
 )
 
-type Slice[T any] []T
+type Slice[T any] struct {
+	array unsafe.Pointer
+	len int
+	cap int
+}
 
 func NewSlice[T any](len, cap int) Slice[T] {
 	var x T
@@ -23,24 +28,57 @@ func NewSlice[T any](len, cap int) Slice[T] {
 		panic("makeslice: cap out of range")
 	}
 
-	array := Malloc(int(mem))
-	v := unsafe.Slice((*T)(array), cap)
-	return Slice[T](v[:len])
+	return Slice[T]{
+		array: Malloc(int(mem)),
+		len: len,
+		cap: cap,
+	}
+}
+
+func (v Slice[T]) Len() int {
+	return v.len
+}
+
+func (v Slice[T]) Cap() int {
+	return v.cap
+}
+
+func (v Slice[T]) Slice() []T {
+	s := unsafe.Slice((*T)(v.array), v.cap)
+	return s[:v.len]
 }
 
 func (v *Slice[T]) Append(elems ...T) {
-	oldLen := len(*v)
+	oldLen := v.len
 	newLen := oldLen + len(elems)
-	if newLen > cap(*v) {
+	if newLen > v.cap {
 		v.growslice(newLen)
 	}
 
-	copy((*v)[oldLen:], elems)
+	copy(v.Slice()[oldLen:], elems)
+}
+
+func (v Slice[T]) Get(idx int) T {
+	if idx >= v.len {
+		panic(fmt.Errorf("index out of range: idx = %d with len = %d", idx, v.len))
+	}
+
+	var tmp T
+	addr := uintptr(v.array) + unsafe.Sizeof(tmp) * uintptr(idx)
+	return *(*T)(unsafe.Pointer(addr))
+}
+
+func (v Slice[T]) Set(idx int, value T) {
+	if idx >= v.len {
+		panic(fmt.Errorf("index out of range: idx = %d with len = %d", idx, v.len))
+	}
+
+	addr := uintptr(v.array) + unsafe.Sizeof(value) * uintptr(idx)
+	*(*T)(unsafe.Pointer(addr)) = value
 }
 
 func (v *Slice[T]) Free() {
-	array := unsafe.Pointer(unsafe.SliceData(*v))
-	Free(array)
+	Free(v.array)
 }
 
 func (v *Slice[T]) growslice(newLen int) {
@@ -54,16 +92,13 @@ func (v *Slice[T]) growslice(newLen int) {
 		panic("growslice: len out of range")
 	}
 
-	vv := *v
-	oldCap := cap(vv)
+	oldCap := v.cap
 	newCap := nextslicecap(newLen, oldCap)
 	
 	capmem := newCap * int(size)
-	array := unsafe.Pointer(unsafe.SliceData(vv))	
-	array = Realloc(array, capmem)
-
-	vv = unsafe.Slice((*T)(array), newCap)
-	*v = vv[:newLen]
+	v.array = Realloc(v.array, capmem)
+	v.len = newLen
+	v.cap = newCap
 }
 
 func nextslicecap(newLen, oldCap int) int {
