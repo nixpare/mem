@@ -9,29 +9,14 @@ var (
 	Free func(p unsafe.Pointer) = stdlibFree
 )
 
-type HeapObj[T any] struct {
-	ptr unsafe.Pointer
-}
-
-func New[T any]() HeapObj[T] {
+func New[T any]() *T {
 	var tmp T
 	ptr := Calloc(1, unsafe.Sizeof(tmp))
-	return HeapObj[T]{ ptr: ptr }
+	return (*T)(unsafe.Pointer(ptr))
 }
 
-func (o HeapObj[T]) Value() *T {
-	return (*T)(unsafe.Pointer(o.ptr))
-}
-
-func (o HeapObj[T]) Clone() HeapObj[T] {
-	value := *o.Value()
-	ptr := Malloc(unsafe.Sizeof(value))
-
-	return HeapObj[T]{ ptr: ptr }
-}
-
-func (o HeapObj[T]) Free() {
-	Free(unsafe.Pointer(o.ptr))
+func FreeObj[T any](obj *T) {
+	Free(unsafe.Pointer(obj))
 }
 
 // GetRef allows, through the use of unsafe Go, to reference a variable

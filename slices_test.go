@@ -12,47 +12,52 @@ import (
 func TestSlices(t *testing.T) {
 	v := NewSlice[int](0, 2)
 	defer v.Free()
-	assert.Equal(t, 0, v.Len())
-	assert.Equal(t, 2, v.Cap())
+	assert.Equal(t, 0, len(v))
+	assert.Equal(t, 2, cap(v))
 
 	v.Append(10, 20, 30)
-	assert.Equal(t, 3, v.Len())
-	assert.Equal(t, 4, v.Cap())
-	assert.Equal(t, 10, v.Get(0))
-	assert.Equal(t, 20, v.Get(1))
-	assert.Equal(t, 30, v.Get(2))
-	assert.Equal(t, true, slices.Equal([]int{10, 20, 30}, v.Slice()), "expected %v, got %v", []int{10, 20, 30}, v.Slice())
+	assert.Equal(t, 3, len(v))
+	assert.Equal(t, 4, cap(v))
+	assert.Equal(t, 10, v[0])
+	assert.Equal(t, 20, v[1])
+	assert.Equal(t, 30, v[2])
+	assert.Equal(t, true, slices.Equal([]int{10, 20, 30}, v), "expected %v, got %v", []int{10, 20, 30}, v)
 
-	v2 := v.Subslice(1, v.Len())
-	assert.Equal(t, 2, v2.Len())
-	assert.Equal(t, 3, v2.Cap())
-	assert.Equal(t, true, slices.Equal([]int{20, 30}, v2.Slice()), "expected %v, got %v", []int{20, 30}, v2.Slice())
+	v2 := v[1:]
+	assert.Equal(t, 2, len(v2))
+	assert.Equal(t, 3, cap(v2))
+	assert.NotEqual(t, v.pointer(), v2.pointer())
+	assert.Equal(t, true, slices.Equal([]int{20, 30}, v2), "expected %v, got %v", []int{20, 30}, v2)
 
-	v2.Set(0, 25)
-	assert.Equal(t, true, slices.Equal([]int{10, 25, 30}, v.Slice()), "expected %v, got %v", []int{10, 25, 30}, v.Slice())
-	assert.Equal(t, true, slices.Equal([]int{25, 30}, v2.Slice()), "expected %v, got %v", []int{25, 30}, v2.Slice())
+	v2[0] = 25
+	assert.Equal(t, true, slices.Equal([]int{10, 25, 30}, v), "expected %v, got %v", []int{10, 25, 30}, v)
+	assert.Equal(t, true, slices.Equal([]int{25, 30}, v2), "expected %v, got %v", []int{25, 30}, v2)
 }
 
 func TestLongSliceUsage(t *testing.T) {
 	oldGC := debug.SetGCPercent(1)
 	defer debug.SetGCPercent(oldGC)
 
-	limit := 1024 * 1024
-	oldLimit := debug.SetMemoryLimit(int64(limit))
+	oldLimit := debug.SetMemoryLimit(1024)
 	defer debug.SetMemoryLimit(oldLimit)
 
-	n := limit * 40
+	n := 1024 * 1024
 	v := NewSlice[int](n, n)
 	defer v.Free()
 
-	for i := range v.Slice() {
-		v.Set(i, i+1)
+	for i := range v {
+		v[i] = i
 	}
 
-	for range 100 {
-		for i, x := range v.Slice() {
-			v.Set(i, (x+1) % v.Len())
+	for j := range 10_000 {
+		for i, x := range v {
+			if i != x {
+				assert.Equal(t, i, x)
+			}
 		}
-		runtime.GC()
+
+		if j % 1000 == 0 {
+			runtime.GC()
+		}
 	}
 }

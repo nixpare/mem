@@ -4,45 +4,36 @@ import (
 	"unsafe"
 )
 
-type String struct {
-	str unsafe.Pointer
-	len uintptr
+type String string
+
+func (s String) Bytes() []byte {
+	return unsafe.Slice(unsafe.StringData(string(s)), len(s))
 }
 
-func (s *String) Len() int {
-	return int(s.len)
+func (s String) Clone() String {
+	ptr := Malloc(uintptr(len(s)))
+	str := String(unsafe.String((*byte)(ptr), len(s)))
+	copy(str.Bytes(), s.Bytes())
+	return str
 }
 
-func (s *String) Bytes() []byte {
-	return unsafe.Slice((*byte)(s.str), s.len)
-}
-
-func (s *String) String() string {
-	return unsafe.String((*byte)(s.str), s.len)
-}
-
-func (s *String) Clone() *String {
-	return s.Concat()
-}
-
-func (s *String) Free() {
-	Free(s.str)
+func (s String) Free() {
+	Free(s.pointer())
 }
 
 func (s *String) Set(str string) {
-	strLen := uintptr(len(str))
-	if s.len != strLen {
-		s.resize(strLen)
+	if len(*s) != len(str) {
+		s.resize(len(str))
 	}
 
 	copy(s.Bytes(), str)
 }
 
-func (s *String) Append(a ...*String) {
-	oldL := s.len
+func (s *String) Append(a ...String) {
+	oldL := len(*s)
 	newL := oldL
 	for _, x := range a {
-		n := x.len
+		n := len(x)
 		if n == 0 {
 			continue
 		}
@@ -60,54 +51,33 @@ func (s *String) Append(a ...*String) {
 	b := s.Bytes()[oldL:]
 	
 	for _, x := range a {
-		copy(b, unsafe.Slice((*byte)(x.str), x.len))
-		b = b[x.len:]
+		copy(b, x.Bytes())
+		b = b[len(x):]
 	}
 }
 
-func (s *String) Concat(a ...*String) *String {
-	l := s.len
-	for _, x := range a {
-		n := x.len
-		if n == 0 {
-			continue
-		}
-		if l+n < l {
-			panic("string concatenation too long")
-		}
-		l += n
-	}
-	
-	str := newString(l, false)
-	b := str.Bytes()
-	
-	copy(b, unsafe.Slice((*byte)(s.str), s.len))
-	b = b[s.len:]
-	for _, x := range a {
-		copy(b, unsafe.Slice((*byte)(x.str), x.len))
-		b = b[x.len:]
-	}
-
-	return str
+func (s *String) resize(size int) {
+	*s = String(unsafe.String(
+		(*byte)(Realloc(s.pointer(), uintptr(size))),
+		size,
+	))
 }
 
-func (s *String) resize(size uintptr) {
-	s.str, s.len = Realloc(s.str, size), size
+func (s String) pointer() unsafe.Pointer {
+	return unsafe.Pointer(unsafe.StringData(string(s)))
 }
 
-func NewString(size int) *String {
+func NewString(size int) String {
 	return newString(uintptr(size), true)
 }
 
-func StringFromGO(s string) *String {
-	str := &String{
-		str: unsafe.Pointer(unsafe.StringData(s)),
-		len: uintptr(len(s)),
-	}
-	return str.Clone()
+func StringFromGO(s string) String {
+	str := newString(uintptr(len(s)), false)
+	str.Set(s)
+	return str
 }
 
-func newString(size uintptr, zeored bool) *String {
+func newString(size uintptr, zeored bool) String {
 	var p unsafe.Pointer
 	if !zeored {
 		p = Malloc(size)
@@ -115,5 +85,5 @@ func newString(size uintptr, zeored bool) *String {
 		p = Calloc(int(size), 1)
 	}
 	
-	return &String{ str: p, len: size }
+	return String(unsafe.String((*byte)(p), int(size)))
 }
