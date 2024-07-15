@@ -94,6 +94,8 @@ func (v *Slice[T]) Append(elems ...T) {
 	newLen := oldLen + len(elems)
 	if newLen > v.cap {
 		v.growslice(newLen)
+	} else {
+		v.len = newLen
 	}
 
 	copy(v.Slice()[oldLen:], elems)
