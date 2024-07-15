@@ -6,31 +6,31 @@ import (
 
 type String struct {
 	str unsafe.Pointer
-	len int
+	len uintptr
 }
 
-func (s String) Len() int {
+func (s *String) Len() int {
 	return int(s.len)
 }
 
-func (s String) Bytes() []byte {
+func (s *String) Bytes() []byte {
 	return unsafe.Slice((*byte)(s.str), s.len)
 }
 
-func (s String) String() string {
+func (s *String) String() string {
 	return unsafe.String((*byte)(s.str), s.len)
 }
 
-func (s String) Clone() String {
+func (s *String) Clone() *String {
 	return s.Concat()
 }
 
-func (s String) Free() {
+func (s *String) Free() {
 	Free(s.str)
 }
 
 func (s *String) Set(str string) {
-	strLen := len(str)
+	strLen := uintptr(len(str))
 	if s.len != strLen {
 		s.resize(strLen)
 	}
@@ -38,7 +38,7 @@ func (s *String) Set(str string) {
 	copy(s.Bytes(), str)
 }
 
-func (s *String) Append(a ...String) {
+func (s *String) Append(a ...*String) {
 	oldL := s.len
 	newL := oldL
 	for _, x := range a {
@@ -65,7 +65,7 @@ func (s *String) Append(a ...String) {
 	}
 }
 
-func (s String) Concat(a ...String) String {
+func (s *String) Concat(a ...*String) *String {
 	l := s.len
 	for _, x := range a {
 		n := x.len
@@ -91,28 +91,29 @@ func (s String) Concat(a ...String) String {
 	return str
 }
 
-func (s *String) resize(size int) {
+func (s *String) resize(size uintptr) {
 	s.str, s.len = Realloc(s.str, size), size
 }
 
-func NewString(size int) String {
-	return newString(size, true)
+func NewString(size int) *String {
+	return newString(uintptr(size), true)
 }
 
-func StringFromGO(s string) String {
-	return String{
+func StringFromGO(s string) *String {
+	str := &String{
 		str: unsafe.Pointer(unsafe.StringData(s)),
-		len: len(s),
-	}.Clone()
+		len: uintptr(len(s)),
+	}
+	return str.Clone()
 }
 
-func newString(size int, zeored bool) String {
+func newString(size uintptr, zeored bool) *String {
 	var p unsafe.Pointer
 	if !zeored {
 		p = Malloc(size)
 	} else {
-		p = Calloc(size, 1)
+		p = Calloc(int(size), 1)
 	}
 	
-	return String{ str: p, len: size }
+	return &String{ str: p, len: size }
 }

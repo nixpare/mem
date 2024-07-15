@@ -5,7 +5,7 @@ import "unsafe"
 //#include <stdlib.h>
 import "C"
 
-func stdlibMalloc(n int) unsafe.Pointer {
+func stdlibMalloc(n uintptr) unsafe.Pointer {
 	return C.malloc(C.ulong(n))
 }
 
@@ -13,7 +13,7 @@ func stdlibCalloc(n int, sizeof uintptr) unsafe.Pointer {
 	return C.calloc(C.ulong(n), C.ulong(sizeof))
 }
 
-func stdlibRealloc(p unsafe.Pointer, n int) unsafe.Pointer {
+func stdlibRealloc(p unsafe.Pointer, n uintptr) unsafe.Pointer {
 	return C.realloc(p, C.ulong(n))
 }
 

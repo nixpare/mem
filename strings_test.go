@@ -13,10 +13,11 @@ func TestString(t *testing.T) {
 	s := a1.Concat(a2, a3)
 	defer s.Free()
 	
-	assert.Equal(t, 14, s.len)
+	assert.Equal(t, uintptr(14), s.len)
 	assert.Equal(t, "ciaobellaaddio", s.String())
 
 	s2 := s.Clone()
+	defer s2.Free()
 	assert.NotEqual(t, s.str, s2.str)
 
 	s2.Set("saluti")
@@ -24,6 +25,7 @@ func TestString(t *testing.T) {
 	assert.Equal(t, "saluti", s2.String())
 
 	s3 := a1.Clone()
+	defer s3.Free()
 	oldPtr := s3.str
 	s3.Append(a2, a3)
 	assert.Equal(t, oldPtr, s3.str)

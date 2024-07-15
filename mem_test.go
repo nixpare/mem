@@ -4,14 +4,13 @@ import (
 	"sync"
 	"testing"
 	"time"
-	"unsafe"
 
 	"github.com/stretchr/testify/assert"
 )
 
 func TestNew(t *testing.T) {
 	x := New[int]()
-	defer Dealloc(x)
+	defer x.Free()
 
 	var wg sync.WaitGroup
 	wg.Add(2)
@@ -21,14 +20,14 @@ func TestNew(t *testing.T) {
 		go func() {
 			time.Sleep(time.Second)
 			
-			assert.Equal(t, 10, *y)
-			assert.Equal(t, x, y)
-			assert.Equal(t, unsafe.Pointer(x), unsafe.Pointer(y))
+			assert.Equal(t, 10, *y.Value())
+			assert.Equal(t, *x.Value(), *y.Value())
+			assert.Equal(t, x.ptr, y.ptr)
 
 			wg.Done()
 		}()
 
-		*y = 10
+		*y.Value() = 10
 		wg.Done()
 	}()
 

@@ -10,10 +10,11 @@ type Slice[T any] struct {
 	len int
 	cap int
 	subslice bool
-	offset uintptr
+	offset int
+	size uintptr
 }
 
-func NewSlice[T any](len, cap int) Slice[T] {
+func NewSlice[T any](len, cap int) *Slice[T] {
 	var x T
 	size := unsafe.Sizeof(x)
 
@@ -30,62 +31,60 @@ func NewSlice[T any](len, cap int) Slice[T] {
 		panic("makeslice: cap out of range")
 	}
 
-	return Slice[T]{
-		array: Malloc(int(mem)),
+	return &Slice[T]{
+		array: Malloc(mem),
 		len: len,
 		cap: cap,
-		offset: 0,
 		subslice: false,
+		offset: 0,
+		size: size,
 	}
 }
 
-func (v Slice[T]) Len() int {
+func (v *Slice[T]) Len() int {
 	return v.len
 }
 
-func (v Slice[T]) Cap() int {
+func (v *Slice[T]) Cap() int {
 	return v.cap
 }
 
-func (v Slice[T]) Get(idx int) T {
+func (v *Slice[T]) Get(idx int) T {
 	if idx >= v.len {
 		panic(fmt.Errorf("index out of range: idx = %d with len = %d", idx, v.len))
 	}
 
-	var tmp T
-	addr := uintptr(v.array) + v.offset + unsafe.Sizeof(tmp) * uintptr(idx)
-
+	addr := uintptr(v.array) + uintptr(v.offset) + v.size * uintptr(idx)
 	return *(*T)(unsafe.Pointer(addr))
 }
 
-func (v Slice[T]) Set(idx int, value T) {
+func (v *Slice[T]) Set(idx int, value T) {
 	if idx >= v.len {
 		panic(fmt.Errorf("index out of range: idx = %d with len = %d", idx, v.len))
 	}
 
-	addr := uintptr(v.array) + v.offset + unsafe.Sizeof(value) * uintptr(idx)
+	addr := uintptr(v.array) + uintptr(v.offset) + v.size * uintptr(idx)
 	*(*T)(unsafe.Pointer(addr)) = value
 }
 
-func (v Slice[T]) Slice() []T {
-	addr := uintptr(v.array) + v.offset
+func (v *Slice[T]) Slice() []T {
+	addr := uintptr(v.array) + uintptr(v.offset)
 	s := unsafe.Slice((*T)(unsafe.Pointer(addr)), v.cap)
 	return s[:v.len]
 }
 
-func (v Slice[T]) Subslice(start, end int) Slice[T] {
+func (v *Slice[T]) Subslice(start, end int) *Slice[T] {
 	if start < 0 || end < 0 || end < start || start >= v.len || end > v.len {
 		panic(fmt.Errorf("subslice out of range: trying [ %d : %d ) on [ %d : %d )", start, end, 0, v.len))
 	}
 
-	var tmp T
-
-	return Slice[T]{
+	return &Slice[T]{
 		array: v.array,
 		len: end - start,
 		cap: v.cap - start,
-		offset: uintptr(start) * unsafe.Sizeof(tmp),
 		subslice: true,
+		offset: start * int(v.size),
+		size: v.size,
 	}
 }
 
@@ -119,7 +118,7 @@ func (v *Slice[T]) growslice(newLen int) {
 	oldCap := v.cap
 	newCap := nextslicecap(newLen, oldCap)
 	
-	capmem := newCap * int(size)
+	capmem := uintptr(newCap) * size
 
 	if !v.subslice {
 		v.array = Realloc(v.array, capmem)
@@ -134,8 +133,9 @@ func (v *Slice[T]) growslice(newLen int) {
 		array: Malloc(capmem),
 		len: newLen,
 		cap: newCap,
-		offset: 0,
 		subslice: false,
+		offset: 0,
+		size: old.size,
 	}
 
 	copy(v.Slice(), old.Slice())

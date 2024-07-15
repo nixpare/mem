@@ -3,20 +3,35 @@ package mem
 import "unsafe"
 
 var (
-	Malloc func(n int) unsafe.Pointer = stdlibMalloc
+	Malloc func(n uintptr) unsafe.Pointer = stdlibMalloc
 	Calloc func(n int, sizeof uintptr) unsafe.Pointer = stdlibCalloc
-	Realloc func(p unsafe.Pointer, n int) unsafe.Pointer = stdlibRealloc
+	Realloc func(p unsafe.Pointer, n uintptr) unsafe.Pointer = stdlibRealloc
 	Free func(p unsafe.Pointer) = stdlibFree
 )
 
-func New[T any]() *T {
-	var obj T
-	ptr := Calloc(1, unsafe.Sizeof(obj))
-	return (*T)(ptr)
+type HeapObj[T any] struct {
+	ptr unsafe.Pointer
 }
 
-func Dealloc[T any](obj *T) {
-	Free(unsafe.Pointer(obj))
+func New[T any]() HeapObj[T] {
+	var tmp T
+	ptr := Calloc(1, unsafe.Sizeof(tmp))
+	return HeapObj[T]{ ptr: ptr }
+}
+
+func (o HeapObj[T]) Value() *T {
+	return (*T)(unsafe.Pointer(o.ptr))
+}
+
+func (o HeapObj[T]) Clone() HeapObj[T] {
+	value := *o.Value()
+	ptr := Malloc(unsafe.Sizeof(value))
+
+	return HeapObj[T]{ ptr: ptr }
+}
+
+func (o HeapObj[T]) Free() {
+	Free(unsafe.Pointer(o.ptr))
 }
 
 // GetRef allows, through the use of unsafe Go, to reference a variable

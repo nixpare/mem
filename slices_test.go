@@ -2,6 +2,7 @@ package mem
 
 import (
 	"runtime"
+	"runtime/debug"
 	"slices"
 	"testing"
 
@@ -33,7 +34,14 @@ func TestSlices(t *testing.T) {
 }
 
 func TestLongSliceUsage(t *testing.T) {
-	n := 1024 * 1024 * 40
+	oldGC := debug.SetGCPercent(1)
+	defer debug.SetGCPercent(oldGC)
+
+	limit := 1024 * 1024
+	oldLimit := debug.SetMemoryLimit(int64(limit))
+	defer debug.SetMemoryLimit(oldLimit)
+
+	n := limit * 40
 	v := NewSlice[int](n, n)
 	defer v.Free()
 
