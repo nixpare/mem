@@ -5,7 +5,7 @@ import "unsafe"
 var (
 	Malloc func(n uintptr) unsafe.Pointer = stdlibMalloc
 	Calloc func(n int, sizeof uintptr) unsafe.Pointer = stdlibCalloc
-	Realloc func(p unsafe.Pointer, n uintptr) unsafe.Pointer = stdlibRealloc
+	Realloc func(p unsafe.Pointer, oldSize, newSize uintptr) unsafe.Pointer = stdlibRealloc
 	Free func(p unsafe.Pointer) = stdlibFree
 )
 

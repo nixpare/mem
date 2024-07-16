@@ -13,8 +13,8 @@ func stdlibCalloc(n int, sizeof uintptr) unsafe.Pointer {
 	return C.calloc(C.ulong(n), C.ulong(sizeof))
 }
 
-func stdlibRealloc(p unsafe.Pointer, n uintptr) unsafe.Pointer {
-	return C.realloc(p, C.ulong(n))
+func stdlibRealloc(p unsafe.Pointer, oldSize, newSize uintptr) unsafe.Pointer {
+	return C.realloc(p, C.ulonglong(newSize))
 }
 
 func stdlibFree(p unsafe.Pointer) {

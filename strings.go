@@ -58,7 +58,7 @@ func (s *String) Append(a ...String) {
 
 func (s *String) resize(size int) {
 	*s = String(unsafe.String(
-		(*byte)(Realloc(s.pointer(), uintptr(size))),
+		(*byte)(Realloc(s.pointer(), uintptr(len(*s)), uintptr(size))),
 		size,
 	))
 }

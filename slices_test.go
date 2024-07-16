@@ -41,7 +41,7 @@ func TestLongSliceUsage(t *testing.T) {
 	oldLimit := debug.SetMemoryLimit(1024)
 	defer debug.SetMemoryLimit(oldLimit)
 
-	n := 1024 * 1024
+	n := 1024 * 1024 * 4
 	v := NewSlice[int](n, n)
 	defer v.Free()
 

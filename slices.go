@@ -62,7 +62,7 @@ func (v *Slice[T]) growslice(newLen int) {
 	newCap := nextslicecap(newLen, oldCap)
 	
 	capmem := uintptr(newCap) * size
-	array := Realloc(v.pointer(), capmem)
+	array := Realloc(v.pointer(), uintptr(cap(*v)), capmem)
 	*v = unsafe.Slice((*T)(array), newCap)[:newLen]
 }
 
