@@ -6,6 +6,12 @@ import (
 
 type String string
 
+func NewString(size int, allocStrategy func(size uintptr) unsafe.Pointer) String {
+	strLen := uintptr(size)
+	p := allocStrategy(strLen)
+	return String(unsafe.String((*byte)(p), int(size)))
+}
+
 func (s String) Bytes() []byte {
 	return unsafe.Slice(unsafe.StringData(string(s)), len(s))
 }
@@ -15,10 +21,6 @@ func (s String) Clone() String {
 	str := String(unsafe.String((*byte)(ptr), len(s)))
 	copy(str.Bytes(), s.Bytes())
 	return str
-}
-
-func (s String) Free() {
-	Free(s.pointer())
 }
 
 func (s *String) Set(str string) {
@@ -58,32 +60,17 @@ func (s *String) Append(a ...String) {
 
 func (s *String) resize(size int) {
 	*s = String(unsafe.String(
-		(*byte)(Realloc(s.pointer(), uintptr(len(*s)), uintptr(size))),
+		(*byte)(Realloc(s.Pointer(), uintptr(size))),
 		size,
 	))
 }
 
-func (s String) pointer() unsafe.Pointer {
+func (s String) Pointer() unsafe.Pointer {
 	return unsafe.Pointer(unsafe.StringData(string(s)))
 }
 
-func NewString(size int) String {
-	return newString(uintptr(size), true)
-}
-
-func StringFromGO(s string) String {
-	str := newString(uintptr(len(s)), false)
+func StringFromGO(s string, allocStrategy func(size uintptr) unsafe.Pointer) String {
+	str := NewString(len(s), allocStrategy)
 	str.Set(s)
 	return str
-}
-
-func newString(size uintptr, zeored bool) String {
-	var p unsafe.Pointer
-	if !zeored {
-		p = Malloc(size)
-	} else {
-		p = Calloc(int(size), 1)
-	}
-	
-	return String(unsafe.String((*byte)(p), int(size)))
 }

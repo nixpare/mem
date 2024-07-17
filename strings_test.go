@@ -7,28 +7,28 @@ import (
 )
 
 func TestString(t *testing.T) {
-	a1, a2, a3 := StringFromGO("ciao"), StringFromGO("bella"), StringFromGO("addio")
-	defer func() { a1.Free(); a2.Free(); a3.Free() }()
+	a1, a2, a3 := StringFromGO("ciao", Malloc), StringFromGO("bella", Malloc), StringFromGO("addio", Malloc)
+	defer func() { Free(a1.Pointer()); Free(a2.Pointer()); Free(a3.Pointer()) }()
 
 	s := a1.Clone()
-	defer s.Free()
+	defer Free(s.Pointer())
 	s.Append(a2, a3)
 	
 	assert.Equal(t, 14, len(s))
 	assert.Equal(t, "ciaobellaaddio", string(s))
 
 	s2 := s.Clone()
-	defer s2.Free()
-	assert.NotEqual(t, s.pointer(), s2.pointer())
+	defer Free(s2.Pointer())
+	assert.NotEqual(t, s.Pointer(), s2.Pointer())
 
 	s2.Set("saluti")
 	assert.Equal(t, "ciaobellaaddio", string(s))
 	assert.Equal(t, "saluti", string(s2))
 
 	s3 := a1.Clone()
-	defer s3.Free()
-	oldPtr := s3.pointer()
+	defer Free(s3.Pointer())
+	oldPtr := s3.Pointer()
 	s3.Append(a2, a3)
-	assert.Equal(t, oldPtr, s3.pointer())
+	assert.Equal(t, oldPtr, s3.Pointer())
 	assert.Equal(t, "ciaobellaaddio", string(s3))
 }

@@ -6,7 +6,7 @@ import (
 
 type Slice[T any] []T
 
-func NewSlice[T any](len, cap int) Slice[T] {
+func NewSlice[T any](len, cap int, allocStrategy func(n int, sizeof uintptr) unsafe.Pointer) Slice[T] {
 	var x T
 	size := unsafe.Sizeof(x)
 
@@ -14,7 +14,7 @@ func NewSlice[T any](len, cap int) Slice[T] {
 		panic("makeslice: unsupported 0-byte elements")
 	}
 
-	mem, overflow := mulUintptr(size, uintptr(cap))
+	_, overflow := mulUintptr(size, uintptr(cap))
 	if overflow || len < 0 || len > cap {
 		_, overflow := mulUintptr(size, uintptr(len))
 		if overflow || len < 0 {
@@ -23,7 +23,7 @@ func NewSlice[T any](len, cap int) Slice[T] {
 		panic("makeslice: cap out of range")
 	}
 
-	array := Malloc(mem)
+	array := allocStrategy(cap, size)
 	return unsafe.Slice((*T)(array), cap)[:len]
 }
 
@@ -33,17 +33,13 @@ func (v *Slice[T]) Append(elems ...T) {
 	if newLen > cap(*v) {
 		v.growslice(newLen)
 	} else {
-		*v = unsafe.Slice((*T)(v.pointer()), cap(*v))[:newLen]
+		*v = unsafe.Slice((*T)(v.Pointer()), cap(*v))[:newLen]
 	}
 
 	copy((*v)[oldLen:], elems)
 }
 
-func (v *Slice[T]) Free() {
-	Free(v.pointer())
-}
-
-func (v Slice[T]) pointer() unsafe.Pointer {
+func (v Slice[T]) Pointer() unsafe.Pointer {
 	return unsafe.Pointer(unsafe.SliceData(v))
 }
 
@@ -62,7 +58,7 @@ func (v *Slice[T]) growslice(newLen int) {
 	newCap := nextslicecap(newLen, oldCap)
 	
 	capmem := uintptr(newCap) * size
-	array := Realloc(v.pointer(), uintptr(cap(*v)), capmem)
+	array := Realloc(v.Pointer(), capmem)
 	*v = unsafe.Slice((*T)(array), newCap)[:newLen]
 }
 

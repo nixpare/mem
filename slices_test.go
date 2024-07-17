@@ -10,8 +10,8 @@ import (
 )
 
 func TestSlices(t *testing.T) {
-	v := NewSlice[int](0, 2)
-	defer v.Free()
+	v := NewSlice[int](0, 2, MallocN)
+	defer Free(v.Pointer())
 	assert.Equal(t, 0, len(v))
 	assert.Equal(t, 2, cap(v))
 
@@ -26,7 +26,7 @@ func TestSlices(t *testing.T) {
 	v2 := v[1:]
 	assert.Equal(t, 2, len(v2))
 	assert.Equal(t, 3, cap(v2))
-	assert.NotEqual(t, v.pointer(), v2.pointer())
+	assert.NotEqual(t, v.Pointer(), v2.Pointer())
 	assert.Equal(t, true, slices.Equal([]int{20, 30}, v2), "expected %v, got %v", []int{20, 30}, v2)
 
 	v2[0] = 25
@@ -42,8 +42,8 @@ func TestLongSliceUsage(t *testing.T) {
 	defer debug.SetMemoryLimit(oldLimit)
 
 	n := 1024 * 1024 * 4
-	v := NewSlice[int](n, n)
-	defer v.Free()
+	v := NewSlice[int](n, n, MallocN)
+	defer Free(v.Pointer())
 
 	for i := range v {
 		v[i] = i
