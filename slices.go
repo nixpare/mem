@@ -86,6 +86,20 @@ func (v *Slice[T]) growslice(
 	*v = newV
 }
 
+func ToSliceMatrix[T any](m Slice[Slice[T]]) [][]T {
+	return unsafe.Slice(
+		(*[]T)(m.Pointer()),
+		cap(m),
+	)[:len(m)]
+}
+
+func FromSliceMatrix[T any](m [][]T) Slice[Slice[T]] {
+	return unsafe.Slice(
+		(*Slice[T])(unsafe.SliceData(m)),
+		cap(m),
+	)[:len(m)]
+}
+
 func FreeSlice[T any](v *Slice[T], freeStrategy func(p unsafe.Pointer)) {
 	freeStrategy(v.Pointer())
 }
