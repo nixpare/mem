@@ -5,17 +5,22 @@ import (
 	"runtime/debug"
 	"slices"
 	"testing"
+	"unsafe"
 
 	"github.com/stretchr/testify/assert"
 )
 
+func testAllocSlice(n int, sizeof, alignof uintptr) unsafe.Pointer {
+	return MallocN(n, sizeof)
+}
+
 func TestSlices(t *testing.T) {
-	v := NewSlice[int](0, 2, MallocN)
-	defer Free(v.Pointer())
+	v := NewSlice[int](0, 2, testAllocSlice)
+	defer FreeSlice(&v, Free)
 	assert.Equal(t, 0, len(v))
 	assert.Equal(t, 2, cap(v))
 
-	v.Append(10, 20, 30)
+	v.Append(Free, testAllocSlice, 10, 20, 30)
 	assert.Equal(t, 3, len(v))
 	assert.Equal(t, 4, cap(v))
 	assert.Equal(t, 10, v[0])
@@ -32,6 +37,16 @@ func TestSlices(t *testing.T) {
 	v2[0] = 25
 	assert.Equal(t, true, slices.Equal([]int{10, 25, 30}, v), "expected %v, got %v", []int{10, 25, 30}, v)
 	assert.Equal(t, true, slices.Equal([]int{25, 30}, v2), "expected %v, got %v", []int{25, 30}, v2)
+
+	v3 := NewSlice[int](0, 0, testAllocSlice)
+	defer FreeSlice(&v3, Free)
+	assert.Equal(t, 0, len(v3))
+	assert.Equal(t, 0, cap(v3))
+
+	v3.Append(nil, testAllocSlice, 1)
+	assert.Equal(t, 1, len(v3))
+	assert.Equal(t, 1, cap(v3))
+	assert.Equal(t, 1, v3[0])
 }
 
 func TestLongSliceUsage(t *testing.T) {
@@ -42,8 +57,8 @@ func TestLongSliceUsage(t *testing.T) {
 	defer debug.SetMemoryLimit(oldLimit)
 
 	n := 1024 * 1024 * 4
-	v := NewSlice[int](n, n, MallocN)
-	defer Free(v.Pointer())
+	v := NewSlice[int](n, n, testAllocSlice)
+	defer FreeSlice(&v, Free)
 
 	for i := range v {
 		v[i] = i

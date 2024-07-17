@@ -2,14 +2,21 @@ package mem
 
 import "unsafe"
 
-func New[T any](allocStrategy func(sizeof uintptr) unsafe.Pointer) *T {
+func New[T any](allocStrategy func(sizeof, alignof uintptr) unsafe.Pointer) *T {
 	var tmp T
-	ptr := allocStrategy(unsafe.Sizeof(tmp))
-	return (*T)(unsafe.Pointer(ptr))
+	p := allocStrategy(unsafe.Sizeof(tmp), unsafe.Alignof(tmp))
+	if uintptr(p) == 0 {
+		panic("new: allocation failed")
+	}
+	return (*T)(unsafe.Pointer(p))
 }
 
-func ObjPointer[T any](obj *T) unsafe.Pointer {
+func ObjectPointer[T any](obj *T) unsafe.Pointer {
 	return unsafe.Pointer(obj)
+}
+
+func FreeObject[T any](obj *T, freeStrategy func(p unsafe.Pointer)) {
+	freeStrategy(ObjectPointer(obj))
 }
 
 // GetRef allows, through the use of unsafe Go, to reference a variable

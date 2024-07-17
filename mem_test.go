@@ -4,13 +4,16 @@ import (
 	"sync"
 	"testing"
 	"time"
+	"unsafe"
 
 	"github.com/stretchr/testify/assert"
 )
 
 func TestNew(t *testing.T) {
-	x := New[int](MallocZero)
-	defer Free(ObjPointer(x))
+	x := New[int](func(sizeof, alignof uintptr) unsafe.Pointer {
+		return MallocZero(sizeof)
+	})
+	defer FreeObject(x, Free)
 
 	var wg sync.WaitGroup
 	wg.Add(2)
@@ -22,7 +25,7 @@ func TestNew(t *testing.T) {
 			
 			assert.Equal(t, 10, *y)
 			assert.Equal(t, *x, *y)
-			assert.Equal(t, ObjPointer(x), ObjPointer(x))
+			assert.Equal(t, ObjectPointer(x), ObjectPointer(x))
 
 			wg.Done()
 		}()
