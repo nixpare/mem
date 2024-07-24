@@ -81,19 +81,26 @@ func (a *DynSlice[T]) SetCap(cap int) {
 
 func (a *DynSlice[T]) setDimentions(newLen int, newCap int) {
 	a.len = newLen
-	actualCap := a.Cap()
+	oldCap := a.Cap()
 
-	if newCap > actualCap {
-		for ; actualCap < newCap; actualCap += a.chunk {
-			newChunk := NewSlice[T](a.chunk, a.chunk, a.alloc)
-
-			if a.data.Append(a.free, a.alloc, newChunk) {
-				a.ownedData[0] = a.data.Pointer()
-			}
-			a.ownedData.Append(a.free, a.alloc, newChunk.Pointer())
+	if newCap > oldCap {
+		if mod := newCap % a.chunk; mod != 0 {
+			newCap += a.chunk - mod
 		}
-	} else if newCap < actualCap {
-		for ; actualCap-a.chunk >= newCap; actualCap -= a.chunk {
+
+		newChunkSize := newCap - oldCap
+		newChunk := NewSlice[T](newChunkSize, newChunkSize, a.alloc)
+		a.ownedData.Append(a.free, a.alloc, newChunk.Pointer())
+
+		dataPtr := a.data.Pointer()
+		for i := 0; i < newChunkSize; i += a.chunk {
+			if a.data.Append(a.free, a.alloc, newChunk[i:i+a.chunk]) {
+				dataPtr = a.data.Pointer()
+			}
+		}
+		a.ownedData[0] = dataPtr
+	} else if newCap < oldCap {
+		for ; oldCap-a.chunk >= newCap; oldCap -= a.chunk {
 			lastChunkPtr := a.data[len(a.data)-1].Pointer()
 			
 			if a.ownedData[len(a.ownedData)-1] == lastChunkPtr {
