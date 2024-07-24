@@ -79,7 +79,7 @@ func testAllocFree(t *testing.T, debug bool) (func(), FreeStrategy, AllocStrateg
 	alloc := func(sizeof, alignof uintptr) unsafe.Pointer {
 		t.Helper()
 
-		ptr := Malloc(sizeof)
+		ptr := Malloc(sizeof, alignof)
 		m[ptr] = false
 
 		if debug {
@@ -91,7 +91,7 @@ func testAllocFree(t *testing.T, debug bool) (func(), FreeStrategy, AllocStrateg
 	allocN := func(n int, sizeof, alignof uintptr) unsafe.Pointer {
 		t.Helper()
 
-		ptr := MallocN(n, sizeof)
+		ptr := MallocN(n, sizeof, alignof)
 		m[ptr] = false
 
 		if debug {

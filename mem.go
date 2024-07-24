@@ -23,23 +23,23 @@ func FreeObject[T any](obj *T, free FreeStrategy) {
 	free(ObjectPointer(obj))
 }
 
-func Malloc(n uintptr) unsafe.Pointer {
+func Malloc(n uintptr, _ uintptr) unsafe.Pointer {
 	return stdlibMalloc(n)
 }
 
-func MallocZero(n uintptr) unsafe.Pointer {
-	return Calloc(1, n)
+func MallocZero(n uintptr, _ uintptr) unsafe.Pointer {
+	return Calloc(1, n, 0)
 }
 
-func MallocN(n int, sizeof uintptr) unsafe.Pointer {
-	return Malloc(uintptr(n) * sizeof)
+func MallocN(n int, sizeof uintptr, _ uintptr) unsafe.Pointer {
+	return Malloc(uintptr(n) * sizeof, 0)
 }
 
-func Calloc(n int, sizeof uintptr) unsafe.Pointer {
+func Calloc(n int, sizeof uintptr, _ uintptr) unsafe.Pointer {
 	return stdlibCalloc(n, sizeof)
 }
 
-func Realloc(p unsafe.Pointer, newSize uintptr) unsafe.Pointer {
+func Realloc(p unsafe.Pointer, newSize uintptr, _ uintptr) unsafe.Pointer {
 	return stdlibRealloc(p, newSize)
 }
 
