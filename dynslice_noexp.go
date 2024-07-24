@@ -43,9 +43,15 @@ func (a *DynSlice[T]) Clone() *DynSlice[T] {
 
 func (a *DynSlice[T]) ToSlice() Slice[T] {
 	slice := NewSlice[T](a.Len(), a.Cap(), a.alloc)
-	for i, x := range a.Iter() {
+	
+	yield, done := a.Iter()
+	defer done()
+
+	for f := range yield {
+		i, x := f()
 		slice[i] = x
 	}
+	
 	return slice
 }
 
