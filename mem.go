@@ -2,10 +2,14 @@ package mem
 
 import "unsafe"
 
-func New[T any](allocStrategy func(sizeof, alignof uintptr) unsafe.Pointer) *T {
+type AllocStrategy func(sizeof, alignof uintptr) unsafe.Pointer
+type AllocNStrategy func(n int, sizeof, alignof uintptr) unsafe.Pointer
+type FreeStrategy func(p unsafe.Pointer)
+
+func New[T any](alloc AllocStrategy) *T {
 	var tmp T
-	p := allocStrategy(unsafe.Sizeof(tmp), unsafe.Alignof(tmp))
-	if uintptr(p) == 0 {
+	p := alloc(unsafe.Sizeof(tmp), unsafe.Alignof(tmp))
+	if p == nil {
 		panic("new: allocation failed")
 	}
 	return (*T)(unsafe.Pointer(p))
@@ -15,18 +19,8 @@ func ObjectPointer[T any](obj *T) unsafe.Pointer {
 	return unsafe.Pointer(obj)
 }
 
-func FreeObject[T any](obj *T, freeStrategy func(p unsafe.Pointer)) {
-	freeStrategy(ObjectPointer(obj))
-}
-
-// GetRef allows, through the use of unsafe Go, to reference a variable
-// allocated on the stack without the possibility that the compiler decides
-// to move that variable automatically on the heap.
-//
-//go:inline
-func GetRef[T any](p *T) *T {
-	addr := uintptr(unsafe.Pointer(p))
-	return (*T)(unsafe.Pointer(addr))
+func FreeObject[T any](obj *T, free FreeStrategy) {
+	free(ObjectPointer(obj))
 }
 
 func Malloc(n uintptr) unsafe.Pointer {

@@ -6,7 +6,7 @@ import (
 
 type Slice[T any] []T
 
-func NewSlice[T any](len, cap int, allocStrategy func(n int, sizeof, alignof uintptr) unsafe.Pointer) Slice[T] {
+func NewSlice[T any](len, cap int, alloc AllocNStrategy) Slice[T] {
 	if len == 0 && cap == 0 {
 		return nil
 	}
@@ -15,7 +15,7 @@ func NewSlice[T any](len, cap int, allocStrategy func(n int, sizeof, alignof uin
 	size := unsafe.Sizeof(tmp)
 
 	if size == 0 {
-		panic("makeslice: unsupported 0-byte elements")
+		panic("slice: unsupported 0-byte elements")
 	}
 
 	_, overflow := mulUintptr(size, uintptr(cap))
@@ -27,39 +27,35 @@ func NewSlice[T any](len, cap int, allocStrategy func(n int, sizeof, alignof uin
 		panic("makeslice: cap out of range")
 	}
 
-	p := allocStrategy(cap, size, unsafe.Alignof(tmp))
-	if uintptr(p) == 0 {
-		panic("new: allocation failed")
+	p := alloc(cap, size, unsafe.Alignof(tmp))
+	if p == nil {
+		panic("slice: allocation failed")
 	}
 
 	return unsafe.Slice((*T)(p), cap)[:len]
 }
 
-func (v *Slice[T]) Append(
-	freeStrategy func(unsafe.Pointer),
-	allocStrategy func(n int, sizeof, alignof uintptr) unsafe.Pointer,
-	elems ...T,
-) {
+func (v *Slice[T]) Append(free FreeStrategy, alloc AllocNStrategy, elems ...T) bool {
 	oldLen := len(*v)
 	newLen := oldLen + len(elems)
+
+	var realloc bool
 	if newLen > cap(*v) {
-		v.growslice(newLen, freeStrategy, allocStrategy)
+		realloc = true
+		v.growslice(newLen, free, alloc)
 	} else {
 		*v = unsafe.Slice((*T)(v.Pointer()), cap(*v))[:newLen]
 	}
 
 	copy((*v)[oldLen:], elems)
+	return realloc
 }
 
 func (v Slice[T]) Pointer() unsafe.Pointer {
 	return unsafe.Pointer(unsafe.SliceData(v))
 }
 
-func (v *Slice[T]) growslice(
-	newLen int,
-	freeStrategy func(unsafe.Pointer),
-	allocStrategy func(n int, sizeof, alignof uintptr) unsafe.Pointer,
-) {
+func (v *Slice[T]) growslice(newLen int, free FreeStrategy, alloc AllocNStrategy) {
 	var tmp T
 	size := unsafe.Sizeof(tmp)
 	if size == 0 {
@@ -72,16 +68,16 @@ func (v *Slice[T]) growslice(
 
 	newCap := nextslicecap(newLen, cap(*v))
 	
-	p := allocStrategy(newCap, size, unsafe.Alignof(tmp))
-	if uintptr(p) == 0 {
-		panic("new: allocation failed")
+	p := alloc(newCap, size, unsafe.Alignof(tmp))
+	if p == nil {
+		panic("slice: allocation failed")
 	}
 	
 	newV := unsafe.Slice((*T)(p), newCap)[:newLen]
 	copy(newV, *v)
 
-	if freeStrategy != nil {
-		freeStrategy(v.Pointer())
+	if free != nil {
+		free(v.Pointer())
 	}
 	*v = newV
 }
@@ -100,8 +96,8 @@ func FromSliceMatrix[T any](m [][]T) Slice[Slice[T]] {
 	)[:len(m)]
 }
 
-func FreeSlice[T any](v *Slice[T], freeStrategy func(p unsafe.Pointer)) {
-	freeStrategy(v.Pointer())
+func FreeSlice[T any](v *Slice[T], free FreeStrategy) {
+	free(v.Pointer())
 }
 
 func nextslicecap(newLen, oldCap int) int {

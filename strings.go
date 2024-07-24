@@ -6,10 +6,10 @@ import (
 
 type String string
 
-func NewString(size int, allocStrategy func(n int, sizeof, alignof uintptr) unsafe.Pointer) String {
-	p := allocStrategy(size, 1, 1)
-	if uintptr(p) == 0 {
-		panic("newstring: allocation failed")
+func NewString(size int, alloc AllocNStrategy) String {
+	p := alloc(size, 1, 1)
+	if p == nil {
+		panic("string: allocation failed")
 	}
 
 	return String(unsafe.String((*byte)(p), size))
@@ -19,34 +19,21 @@ func (s String) Bytes() []byte {
 	return unsafe.Slice((*byte)(s.Pointer()), len(s))
 }
 
-func (s String) Clone(allocStrategy func(n int, sizeof, alignof uintptr) unsafe.Pointer) String {
-	p := allocStrategy(len(s), 1, 1)
-	if uintptr(p) == 0 {
-		panic("clonestring: allocation failed")
-	}
-
-	str := NewString(len(s), allocStrategy)
+func (s String) Clone(alloc AllocNStrategy) String {
+	str := NewString(len(s), alloc)
 	copy(str.Bytes(), s)
 	return str
 }
 
-func (s *String) Set(
-	str string,
-	freeStrategy func(p unsafe.Pointer),
-	allocStrategy func(n int, sizeof, alignof uintptr) unsafe.Pointer,
-) {
+func (s *String) Set(str string, free FreeStrategy, alloc AllocNStrategy) {
 	if len(*s) != len(str) {
-		s.resize(len(str), freeStrategy, allocStrategy)
+		s.resize(len(str), free, alloc)
 	}
 
 	copy(s.Bytes(), str)
 }
 
-func (s *String) Append(
-	freeStrategy func(p unsafe.Pointer),
-	allocStrategy func(n int, sizeof, alignof uintptr) unsafe.Pointer,
-	a ...String,
-) {
+func (s *String) Append(free FreeStrategy, alloc AllocNStrategy, a ...String) {
 	oldL := len(*s)
 	newL := oldL
 	for _, x := range a {
@@ -64,7 +51,7 @@ func (s *String) Append(
 		return
 	}
 	
-	s.resize(newL, freeStrategy, allocStrategy)
+	s.resize(newL, free, alloc)
 	b := s.Bytes()[oldL:]
 	
 	for _, x := range a {
@@ -73,16 +60,12 @@ func (s *String) Append(
 	}
 }
 
-func (s *String) resize(
-	size int,
-	freeStrategy func(p unsafe.Pointer),
-	allocStrategy func(n int, sizeof, alignof uintptr) unsafe.Pointer,
-) {
-	newStr := NewString(size, allocStrategy)
+func (s *String) resize(size int, free FreeStrategy, alloc AllocNStrategy) {
+	newStr := NewString(size, alloc)
 	copy(newStr.Bytes(), *s)
 	
-	if freeStrategy != nil {
-		freeStrategy(s.Pointer())
+	if free != nil {
+		free(s.Pointer())
 	}
 	*s = newStr
 }
@@ -91,12 +74,12 @@ func (s String) Pointer() unsafe.Pointer {
 	return unsafe.Pointer(unsafe.StringData(string(s)))
 }
 
-func FreeString(s *String, freeStrategy func(p unsafe.Pointer)) {
-	freeStrategy(s.Pointer())
+func FreeString(s *String, free FreeStrategy) {
+	free(s.Pointer())
 }
 
-func StringFromGO(s string, allocStrategy func(n int, sizeof, alignof uintptr) unsafe.Pointer) String {
-	str := NewString(len(s), allocStrategy)
-	str.Set(s, nil, allocStrategy)
+func StringFromGO(s string, alloc AllocNStrategy) String {
+	str := NewString(len(s), alloc)
+	str.Set(s, nil, alloc)
 	return str
 }

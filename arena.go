@@ -11,13 +11,13 @@ type region struct {
 	next  uintptr
 }
 
-func newRegion(size uintptr) region {
-	p := Malloc(size)
-	ptr := uintptr(p)
-	if ptr == 0 {
+func newRegion(size uintptr, alloc AllocStrategy) region {
+	p := alloc(size, 1)
+	if p == nil {
 		panic("arena: create new memory block failed")
 	}
 
+	ptr := uintptr(p)
 	return region{
 		start: p,
 		end:   ptr + size,
@@ -37,18 +37,27 @@ func (r *region) allocate(n int, sizeof uintptr, alignof uintptr) uintptr {
 	return aligned
 }
 
-func (r region) free() {
-	Free(r.start)
+func (r region) free(free FreeStrategy) {
+	free(r.start)
 }
 
 type Arena struct {
-	regions   []region
+	regions   Slice[region]
 	allocSize uintptr
+	alloc     AllocStrategy
+	free	  FreeStrategy
 	m         sync.Mutex
 }
 
-func NewArena(allocSize uintptr) *Arena {
-	return &Arena{allocSize: allocSize}
+func NewArena(allocSize uintptr, free FreeStrategy,alloc AllocStrategy) *Arena {
+	a := New[Arena](alloc)
+	*a = Arena{
+		allocSize: allocSize,
+		alloc:     alloc,
+		free:      free,
+	}
+
+	return a
 }
 
 func (a *Arena) Alloc(sizeof, alignof uintptr) unsafe.Pointer {
@@ -70,7 +79,7 @@ func (a *Arena) AllocN(n int, sizeof, alignof uintptr) unsafe.Pointer {
 
 	ptr := a.regions[len(a.regions)-1].allocate(n, sizeof, alignof)
 	if ptr == 0 {
-		panic("arena: alloc failed with new memory block")
+		panic("arena: allocation of new memory block failed")
 	}
 
 	return unsafe.Pointer(ptr)
@@ -86,7 +95,20 @@ func (a *Arena) allocRegion(n int, sizeof uintptr) {
 		memSize = reqSize
 	}
 
-	a.regions = append(a.regions, newRegion(memSize))
+	a.regions.Append(a.free, a.allocNAdapter, newRegion(memSize, a.alloc))
+}
+
+func (a *Arena) allocNAdapter(n int, sizeof, alignof uintptr) unsafe.Pointer {
+	return a.alloc(uintptr(n)*sizeof, alignof)
+}
+
+func (a *Arena) Reset() {
+	a.m.Lock()
+	defer a.m.Unlock()
+
+	for i := range a.regions {
+		a.regions[i].next = uintptr(a.regions[i].start)
+	}
 }
 
 func (a *Arena) Free() {
@@ -94,7 +116,9 @@ func (a *Arena) Free() {
 	defer a.m.Unlock()
 
 	for _, r := range a.regions {
-		r.free()
+		r.free(a.free)
 	}
-	a.regions = nil
+	FreeSlice(&a.regions, a.free)
+
+	FreeObject(a, a.free)
 }
