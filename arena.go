@@ -113,12 +113,12 @@ func (a *Arena) Reset() {
 
 func (a *Arena) Free() {
 	a.m.Lock()
-	defer a.m.Unlock()
 
 	for _, r := range a.regions {
 		r.free(a.free)
 	}
 	FreeSlice(&a.regions, a.free)
 
+	a.m.Unlock()
 	FreeObject(a, a.free)
 }
